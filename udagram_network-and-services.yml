@@ -31,11 +31,6 @@ Parameters:
     Type: String
     Default: 10.0.3.0/24
 
-  InstanceType:
-    Description: Provide the EC2 instance type for general purpose
-    Type: String
-    AllowedValues: [t2.medium, t3.medium]
-
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -225,7 +220,7 @@ Resources:
       Roles:
         - Ref: S3ReadOnlyRole
 
-  ProfileWithRolesForOurApp:
+  WebAppInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: "/"
@@ -268,27 +263,30 @@ Resources:
           ToPort: 65535
           CidrIp: 0.0.0.0/0
 
-  WebAppLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
+  WebAppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          apt-get update -y
-          apt-get install awscli -y
-          apt-get install apache2 -y
-          systemctl start apache2.service
-          cd /var/www/html
-          aws s3 cp s3://kienlt33-project2/index.html .
-      ImageId: ami-0a6b2839d44d781b2
-      IamInstanceProfile: !Ref ProfileWithRolesForOurApp
-      SecurityGroups:
-        - Ref: WebServerSecGroup
-      InstanceType: !Ref InstanceType
-      BlockDeviceMappings:
+      LaunchTemplateName: !Sub "${EnvironmentName}-web-servers"
+      LaunchTemplateData:
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install awscli -y
+            apt-get install apache2 -y
+            systemctl start apache2.service
+            cd /var/www/html
+            aws s3 cp s3://kienlt33-project2/index.html .
+        ImageId: ami-0557a15b87f6559cf
+        SecurityGroupIds:
+          - !Ref WebServerSecGroup
+        InstanceType: t3.small
+        BlockDeviceMappings:
         - DeviceName: "/dev/sdk"
           Ebs:
-            VolumeSize: "10"
+            VolumeSize: '10'
+        IamInstanceProfile:
+          Name: !Ref WebAppInstanceProfile
 
   WebAppTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -309,12 +307,14 @@ Resources:
       VPCZoneIdentifier:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-      LaunchConfigurationName:
-        Ref: WebAppLaunchConfig
-      MinSize: "3"
-      MaxSize: "5"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebAppLaunchTemplate
+        Version: !GetAtt WebAppLaunchTemplate.LatestVersionNumber
+      MinSize: '1'
+      DesiredCapacity: '1'
+      MaxSize: '3'
       TargetGroupARNs:
-        - Ref: WebAppTargetGroup
+      - Ref: WebAppTargetGroup
 
   WebAppLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer

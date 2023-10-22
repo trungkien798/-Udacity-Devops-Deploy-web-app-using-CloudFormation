@@ -10,4 +10,4 @@
 - Delete bucket on S3: kienlt33-project2
 
 ## Other considerations
-- Access public url for web application from Application Load Balancer: https://udagra-webap-wsifoyikvdpc-1645105538.us-east-1.elb.amazonaws.com/
+- Access public url for web application from Application Load Balancer: http://udagra-WebAp-wSiFOYIKVdPc-1645105538.us-east-1.elb.amazonaws.com
